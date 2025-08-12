@@ -1,42 +1,42 @@
----
 - name: restart nginx
+  become: yes
   shell: |
-    echo "=== Checking nginx status before restart ==="
-    sudo systemctl status nginx.service --no-pager -l || true
-    echo "=== Checking port 80 usage ==="
-    sudo ss -tlnp | grep :80 || echo "Port 80 not in use according to ss"
-    echo "=== Checking all listening ports ==="
-    sudo ss -tlnp | head -10
-    echo "=== Checking for any nginx processes ==="
-    sudo ps aux | grep nginx || echo "No nginx processes found"
-    echo "=== Checking systemd socket units ==="
-    sudo systemctl list-sockets | grep :80 || echo "No socket units on port 80"
-    echo "=== Testing nginx config ==="
-    sudo /usr/sbin/nginx -t || true
-    echo "=== Stopping nginx ==="
-    sudo systemctl stop nginx || true
-    echo "=== Force killing any remaining nginx processes ==="
-    sudo pkill -f nginx || echo "No nginx processes to kill"
-    echo "=== Waiting 2 seconds for port to be released ==="
-    sleep 2
-    echo "=== Starting nginx ==="
-    sudo systemctl start nginx
-    echo "=== Checking nginx status after restart ==="
-    sudo systemctl status nginx.service --no-pager -l || true
-    if ! sudo systemctl is-active --quiet nginx; then
-      echo "=== Nginx failed to start, checking logs ==="
-      sudo journalctl -xeu nginx.service --no-pager -n 50 || true
-      sudo tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log found"
-      exit 1
-    fi
+    echo "=== Checking nginx status BEFORE restart ==="
+    systemctl status nginx.service --no-pager -l || true
 
-- name: reload nginx
-  shell: |
-    echo "=== Testing nginx config before reload ==="
-    if sudo /usr/sbin/nginx -t; then
-      echo "=== Reloading nginx ==="
-      sudo systemctl reload nginx
-    else
-      echo "=== Config test failed, skipping reload ==="
+    echo "=== Checking port 80 usage BEFORE restart ==="
+    ss -tlnp | grep :80 || echo "Port 80 not in use"
+
+    echo "=== Killing any lingering nginx processes ==="
+    systemctl stop nginx || true
+    pkill -f nginx || echo "No nginx processes to kill"
+
+    echo "=== Removing stale PID file if exists ==="
+    rm -f /var/run/nginx.pid
+
+    echo "=== Testing nginx configuration ==="
+    /usr/sbin/nginx -t
+
+    echo "=== Waiting 3 seconds before restart ==="
+    sleep 3
+
+    echo "=== Starting nginx ==="
+    systemctl start nginx
+
+    echo "=== Waiting 3 seconds after start ==="
+    sleep 3
+
+    echo "=== Checking nginx status AFTER restart ==="
+    if ! systemctl is-active --quiet nginx; then
+      echo "Nginx FAILED to start!"
+      echo "--- SYSTEMD LOGS ---"
+      journalctl -u nginx.service --no-pager -n 50
+      echo "--- NGINX ERROR LOG ---"
+      tail -n 50 /var/log/nginx/error.log 2>/dev/null || echo "No error log found"
       exit 1
+    else
+      systemctl status nginx.service --no-pager -l || true
+      echo "Nginx is running."
     fi
+  args:
+    executable: /bin/bash
