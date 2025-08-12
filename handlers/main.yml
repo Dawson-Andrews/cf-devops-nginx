@@ -4,11 +4,21 @@
     echo "=== Checking nginx status before restart ==="
     sudo systemctl status nginx.service --no-pager -l || true
     echo "=== Checking port 80 usage ==="
-    sudo netstat -tlnp | grep :80 || echo "Port 80 not in use"
+    sudo ss -tlnp | grep :80 || echo "Port 80 not in use according to ss"
+    echo "=== Checking all listening ports ==="
+    sudo ss -tlnp | head -10
+    echo "=== Checking for any nginx processes ==="
+    sudo ps aux | grep nginx || echo "No nginx processes found"
+    echo "=== Checking systemd socket units ==="
+    sudo systemctl list-sockets | grep :80 || echo "No socket units on port 80"
     echo "=== Testing nginx config ==="
     sudo /usr/sbin/nginx -t || true
     echo "=== Stopping nginx ==="
     sudo systemctl stop nginx || true
+    echo "=== Force killing any remaining nginx processes ==="
+    sudo pkill -f nginx || echo "No nginx processes to kill"
+    echo "=== Waiting 2 seconds for port to be released ==="
+    sleep 2
     echo "=== Starting nginx ==="
     sudo systemctl start nginx
     echo "=== Checking nginx status after restart ==="
