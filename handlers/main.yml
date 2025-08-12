@@ -2,7 +2,7 @@
 - name: restart nginx
   become: yes
   shell: |
-    set +e  # Don't stop on errors
+    set +e
 
     echo "=== Checking nginx status BEFORE restart ==="
     systemctl status nginx.service --no-pager -l || true
