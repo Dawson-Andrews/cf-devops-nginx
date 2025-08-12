@@ -1,99 +1,32 @@
 ---
 - name: restart nginx
-  block:
-    - name: Check nginx service status before restart
-      shell: sudo systemctl status nginx.service --no-pager -l
-      register: nginx_status_before
-      ignore_errors: yes
-
-    - name: Debug nginx service status before restart
-      debug:
-        msg: "Nginx status before restart: {{ nginx_status_before.stdout_lines }}"
-
-    - name: Check what's using port 80
-      shell: sudo netstat -tlnp | grep :80 || echo "Port 80 not in use"
-      register: port_check
-      ignore_errors: yes
-
-    - name: Debug port usage
-      debug:
-        msg: "Port 80 usage: {{ port_check.stdout_lines }}"
-
-    - name: Test nginx config before restart
-      shell: sudo /usr/sbin/nginx -t
-      register: config_test_before
-      ignore_errors: yes
-
-    - name: Debug config test before restart
-      debug:
-        msg:
-          - "Config test stdout: {{ config_test_before.stdout }}"
-          - "Config test stderr: {{ config_test_before.stderr }}"
-
-    - name: Stop nginx service
-      shell: sudo systemctl stop nginx
-      ignore_errors: yes
-
-    - name: Start nginx service
-      shell: sudo systemctl start nginx
-      register: nginx_start_result
-      ignore_errors: yes
-
-    - name: Check nginx service status after restart
-      shell: sudo systemctl status nginx.service --no-pager -l
-      register: nginx_status_after
-      ignore_errors: yes
-
-    - name: Debug nginx service status after restart
-      debug:
-        msg: "Nginx status after restart: {{ nginx_status_after.stdout_lines }}"
-
-    - name: Check nginx journal logs if start failed
-      shell: sudo journalctl -xeu nginx.service --no-pager -n 50
-      register: nginx_journal
-      ignore_errors: yes
-      when: nginx_start_result.rc != 0
-
-    - name: Debug nginx journal logs
-      debug:
-        msg: "Nginx journal logs: {{ nginx_journal.stdout_lines }}"
-      when: nginx_start_result.rc != 0
-
-    - name: Check nginx error log if start failed
-      shell: sudo tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log found"
-      register: nginx_error_log
-      ignore_errors: yes
-      when: nginx_start_result.rc != 0
-
-    - name: Debug nginx error log
-      debug:
-        msg: "Nginx error log: {{ nginx_error_log.stdout_lines }}"
-      when: nginx_start_result.rc != 0
-
-    - name: Fail if nginx restart failed
-      fail:
-        msg: "Nginx failed to start. Check the debug output above for details."
-      when: nginx_start_result.rc != 0
+  shell: |
+    echo "=== Checking nginx status before restart ==="
+    sudo systemctl status nginx.service --no-pager -l || true
+    echo "=== Checking port 80 usage ==="
+    sudo netstat -tlnp | grep :80 || echo "Port 80 not in use"
+    echo "=== Testing nginx config ==="
+    sudo /usr/sbin/nginx -t || true
+    echo "=== Stopping nginx ==="
+    sudo systemctl stop nginx || true
+    echo "=== Starting nginx ==="
+    sudo systemctl start nginx
+    echo "=== Checking nginx status after restart ==="
+    sudo systemctl status nginx.service --no-pager -l || true
+    if ! sudo systemctl is-active --quiet nginx; then
+      echo "=== Nginx failed to start, checking logs ==="
+      sudo journalctl -xeu nginx.service --no-pager -n 50 || true
+      sudo tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log found"
+      exit 1
+    fi
 
 - name: reload nginx
-  block:
-    - name: Test nginx config before reload
-      shell: sudo /usr/sbin/nginx -t
-      register: config_test_reload
-
-    - name: Reload nginx service
-      shell: sudo systemctl reload nginx
-      when: config_test_reload.rc == 0
-
-    - name: Debug config test failure
-      debug:
-        msg:
-          - "Config test failed before reload:"
-          - "stdout: {{ config_test_reload.stdout }}"
-          - "stderr: {{ config_test_reload.stderr }}"
-      when: config_test_reload.rc != 0
-
-    - name: Fail if config test failed
-      fail:
-        msg: "Nginx configuration test failed, skipping reload"
-      when: config_test_reload.rc != 0
+  shell: |
+    echo "=== Testing nginx config before reload ==="
+    if sudo /usr/sbin/nginx -t; then
+      echo "=== Reloading nginx ==="
+      sudo systemctl reload nginx
+    else
+      echo "=== Config test failed, skipping reload ==="
+      exit 1
+    fi
