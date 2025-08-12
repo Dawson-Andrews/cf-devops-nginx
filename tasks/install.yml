@@ -10,6 +10,14 @@
     state: present
     filename: 'nginx'
 
+- name: Stop and disable apache2 to free port 80 for nginx
+  systemd:
+    name: apache2
+    state: stopped
+    enabled: no
+  become: yes
+  ignore_errors: yes
+
 - name: Install nginx
   apt:
     name: nginx
