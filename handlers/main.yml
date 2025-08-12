@@ -1,10 +1,6 @@
 ---
 - name: restart nginx
-  service:
-    name: nginx
-    state: restarted
+  shell: sudo systemctl restart nginx
 
 - name: reload nginx
-  service:
-    name: nginx
-    state: reloaded
+  shell: sudo systemctl reload nginx
