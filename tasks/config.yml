@@ -56,5 +56,4 @@
     state: link
   when: virtual_host_configs.matched > 0
   with_items: "{{ virtual_host_configs.files }}"
-  notify: reload nginx
   
