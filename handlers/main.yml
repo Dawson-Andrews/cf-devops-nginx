@@ -24,7 +24,7 @@
     sleep 3
 
     echo "=== Starting nginx ==="
-    ( systemctl start nginx & )
+    systemctl start nginx
     sleep 3
 
     echo "=== Checking nginx status AFTER restart ==="
