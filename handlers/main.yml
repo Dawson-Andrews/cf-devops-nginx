@@ -1,4 +1,51 @@
 ---
+- name: Check nginx service status
+  shell: sudo systemctl status nginx.service --no-pager -l
+  register: nginx_status
+  ignore_errors: yes
+
+- name: Debug nginx service status
+  debug:
+    var: nginx_status.stdout_lines
+
+- name: Check nginx journal logs
+  shell: sudo journalctl -xeu nginx.service --no-pager -n 50
+  register: nginx_journal
+  ignore_errors: yes
+
+- name: Debug nginx journal logs
+  debug:
+    var: nginx_journal.stdout_lines
+
+- name: Check nginx error log
+  shell: sudo tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log found"
+  register: nginx_error_log
+  ignore_errors: yes
+
+- name: Debug nginx error log
+  debug:
+    var: nginx_error_log.stdout_lines
+
+- name: Check what's using port 80
+  shell: sudo netstat -tlnp | grep :80 || echo "Port 80 not in use"
+  register: port_check
+  ignore_errors: yes
+
+- name: Debug port usage
+  debug:
+    var: port_check.stdout_lines
+
+- name: Test nginx config again
+  shell: sudo /usr/sbin/nginx -t
+  register: config_test
+  ignore_errors: yes
+
+- name: Debug config test
+  debug:
+    msg:
+      - "Config test stdout: {{ config_test.stdout }}"
+      - "Config test stderr: {{ config_test.stderr }}"
+
 - name: restart nginx
   shell: sudo systemctl restart nginx
 
